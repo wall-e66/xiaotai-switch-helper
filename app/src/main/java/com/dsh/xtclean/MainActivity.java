@@ -256,7 +256,7 @@ public class MainActivity extends Activity {
     }
 
     private String sh(String cmd) throws Exception {
-        Process p = Shizuku.newProcess(new String[]{"/system/bin/sh", "-c", cmd}, null, null);
+        Process p = newProcess(cmd);
         InputStream is = p.getInputStream();
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
         byte[] buf = new byte[4096];
@@ -265,6 +265,28 @@ public class MainActivity extends Activity {
         is.close();
         p.waitFor();
         return new String(bos.toByteArray(), StandardCharsets.UTF_8).trim();
+    }
+
+    private static Process newProcess(String cmd) throws Exception {
+        Class<?> c = Class.forName("rikka.shizuku.Shizuku");
+        StringBuilder seen = new StringBuilder();
+        for (java.lang.reflect.Method m : c.getDeclaredMethods()) {
+            if (!"newProcess".equals(m.getName())) continue;
+            m.setAccessible(true);
+            Class<?>[] pt = m.getParameterTypes();
+            Object[] args = new Object[pt.length];
+            for (int i = 0; i < pt.length; i++) {
+                args[i] = (i == 0 && pt[i] == String[].class)
+                        ? new String[]{"/system/bin/sh", "-c", cmd} : null;
+            }
+            try {
+                Object r = m.invoke(null, args);
+                if (r instanceof Process) return (Process) r;
+            } catch (Throwable t) {
+                seen.append(t).append(" | ");
+            }
+        }
+        throw new NoSuchMethodException("newProcess not usable: " + seen);
     }
 
     private void launchTarget() {
